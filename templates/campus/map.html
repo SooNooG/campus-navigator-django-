@@ -5,48 +5,160 @@
     #map {
         height: 75vh;
         width: 100%;
-        border-radius: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-radius: 0.75rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        border: 1px solid #e5e7eb;
     }
-    .edit-mode-indicator {
-        position: fixed;
-        top: 12px;
-        right: 12px;
-        z-index: 1000;
+    .glass-card {
+        background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(248,250,252,0.95));
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.6);
+        box-shadow: 0 20px 60px rgba(59,130,246,0.08);
     }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translate(-50%, 10px); }
+        to { opacity: 1; transform: translate(-50%, 0); }
+    }
+    .animate-fadeIn { animation: fadeInUp 0.25s ease; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-lg shadow p-4 mb-6">
-    <div class="flex flex-col md:flex-row gap-4 items-center">
-        <div class="w-full md:w-auto">
-            <label class="block text-sm font-medium text-gray-700 mb-1">От:</label>
-            <select id="routeFrom" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
-                <option value="">— выберите точку —</option>
-            </select>
+<div class="flex flex-col gap-4 mb-6">
+    <div class="glass-card rounded-2xl p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <p class="text-xs uppercase tracking-[0.25em] text-blue-500 font-semibold">Карта кампуса</p>
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mt-2">Планируйте маршруты и управляйте точками</h2>
+                <p class="text-gray-600 mt-2 max-w-3xl">Выбирайте начальную и конечную точки, сохраняйте избранные места и (для администраторов) добавляйте новые объекты прямо с карты.</p>
+            </div>
+            <div class="flex gap-2 text-sm">
+                <span class="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 font-semibold">Надежность карт</span>
+                <span class="px-3 py-2 rounded-lg bg-green-50 text-green-700 font-semibold">Быстрая маршрутизация</span>
+            </div>
         </div>
-        <div class="w-full md:w-auto">
-            <label class="block text-sm font-medium text-gray-700 mb-1">До:</label>
-            <select id="routeTo" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
-                <option value="">— выберите точку —</option>
-            </select>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="space-y-4">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <p class="text-xs uppercase tracking-wide text-gray-500 font-semibold">Маршрут</p>
+                        <h3 class="text-lg font-semibold text-gray-900">Быстрое построение</h3>
+                    </div>
+                    <span class="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-700">Новое</span>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">От:</label>
+                        <select id="routeFrom" class="w-full rounded-lg border border-gray-200 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                            <option value="">— выберите точку —</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">До:</label>
+                        <select id="routeTo" class="w-full rounded-lg border border-gray-200 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                            <option value="">— выберите точку —</option>
+                        </select>
+                    </div>
+                    <button id="buildRouteBtn" class="w-full justify-center inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm">
+                        <span>Построить маршрут</span>
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-3">Совет: выберите разные точки, чтобы увидеть оптимальный путь и время в пути.</p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <p class="text-xs uppercase tracking-wide text-gray-500 font-semibold">Избранное</p>
+                        <h3 class="text-lg font-semibold text-gray-900">Быстрый доступ</h3>
+                    </div>
+                    {% if user.is_authenticated %}
+                        <span class="px-2 py-1 text-xs rounded-full bg-emerald-50 text-emerald-700">Активно</span>
+                    {% else %}
+                        <span class="px-2 py-1 text-xs rounded-full bg-orange-50 text-orange-700">Войдите</span>
+                    {% endif %}
+                </div>
+                {% if user.is_authenticated %}
+                    <div id="favoritesList" class="space-y-2 text-sm text-gray-700">
+                        <p class="text-gray-500">Загружаем ваши избранные точки...</p>
+                    </div>
+                {% else %}
+                    <p class="text-sm text-gray-500">Авторизуйтесь, чтобы сохранять любимые места и быстро строить маршруты к ним.</p>
+                {% endif %}
+            </div>
+
+            <div class="bg-blue-50 border border-blue-100 text-blue-900 rounded-2xl p-4">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 text-xl">ℹ️</span>
+                    <div>
+                        <p class="text-sm font-semibold">Как пользоваться картой</p>
+                        <p class="text-xs text-blue-800">Короткая памятка для посетителей и администраторов.</p>
+                    </div>
+                </div>
+                <ul class="text-sm space-y-1 list-disc list-inside">
+                    <li>Нажмите на точку, чтобы увидеть информацию и добавить её в избранное.</li>
+                    <li>Используйте форму маршрута, чтобы быстро построить путь по кампусу.</li>
+                    <li>Администратор может включить режим редактирования и кликнуть по карте для добавления нового объекта.</li>
+                </ul>
+            </div>
         </div>
-        <button id="buildRouteBtn" class="mt-4 md:mt-0 self-start px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-            Построить маршрут
-        </button>
+
+        <div class="lg:col-span-2">
+            <div class="relative">
+                {% if user.is_superuser %}
+                <div class="absolute top-3 right-3 z-20 flex flex-col gap-2 max-w-xs">
+                    <div class="bg-white/90 backdrop-blur rounded-xl shadow-sm border border-gray-100 p-3 flex items-start gap-3">
+                        <div class="h-10 w-10 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 text-xl">⚙️</div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-800">Админ-инструменты</p>
+                            <p class="text-xs text-gray-500">Включите режим, кликните по карте и заполните карточку точки.</p>
+                        </div>
+                        <button id="toggleEditMode" class="px-3 py-2 text-sm font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition shadow">
+                            ✏️ Режим
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div id="map" class="overflow-hidden"></div>
+
+                {% if user.is_superuser %}
+                <div id="newPoiPanel" class="hidden absolute bottom-4 left-4 right-4 lg:left-auto lg:right-4 z-20 max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100 p-4">
+                    <div class="flex items-start gap-3 mb-3">
+                        <div class="h-10 w-10 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 text-xl">➕</div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-900">Новая точка на карте</p>
+                            <p class="text-xs text-gray-500">Координаты: <span id="newPoiCoords" class="font-mono">—</span></p>
+                        </div>
+                        <button id="cancelPoiBtn" class="text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Название</label>
+                            <input id="poiTitle" class="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Например, Столовая №2" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Тип объекта</label>
+                            <input id="poiType" class="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Столовая, вход, аудитория..." required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Дополнительная информация</label>
+                            <textarea id="poiInfo" rows="2" class="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Часы работы, этаж и т.д."></textarea>
+                        </div>
+                        <div class="flex justify-end gap-2 pt-2">
+                            <button id="resetPoiForm" class="px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Очистить</button>
+                            <button id="submitPoi" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 shadow">Сохранить</button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
-
-{% if user.is_superuser %}
-<div class="edit-mode-indicator">
-    <button id="toggleEditMode" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 shadow">
-        ✏️ Режим редактирования
-    </button>
-</div>
-{% endif %}
-
-<div id="map"></div>
 {% endblock %}
 
 {% block extra_js %}
@@ -62,6 +174,7 @@
     let map = null;
     let routeOnMap = null;
     let editMode = false;
+    let pendingCoords = null;
 
     ymaps.ready(init);
 
@@ -82,19 +195,36 @@
                         .then(favs => {
                             favs.forEach(f => userFavorites.add(f.poi__id));
                         })
-                        .catch(err => console.warn('Не удалось загрузить избранное'));
+                        .catch(() => console.warn('Не удалось загрузить избранное'));
                 }
             })
             .then(() => {
                 updateMapWithPlacemarks();
                 populateDropdowns();
+                renderFavoritesList();
             });
 
         document.getElementById('buildRouteBtn').addEventListener('click', buildRoute);
 
         if (isSuperuser) {
             document.getElementById('toggleEditMode').addEventListener('click', toggleEditMode);
+            document.getElementById('cancelPoiBtn').addEventListener('click', hidePoiPanel);
+            document.getElementById('resetPoiForm').addEventListener('click', clearPoiForm);
+            document.getElementById('submitPoi').addEventListener('click', submitPoiForm);
         }
+    }
+
+    function showToast(message, type = 'success') {
+        const colors = type === 'error'
+            ? 'bg-red-600'
+            : type === 'warning'
+                ? 'bg-amber-500'
+                : 'bg-emerald-600';
+        const toast = document.createElement('div');
+        toast.className = `${colors} text-white text-sm px-4 py-2 rounded-lg shadow-lg fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-fadeIn`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2800);
     }
 
     function updateMapWithPlacemarks() {
@@ -130,7 +260,6 @@
         const fromSelect = document.getElementById('routeFrom');
         const toSelect = document.getElementById('routeTo');
 
-        // Clear options except placeholder
         fromSelect.innerHTML = '<option value="">— выберите точку —</option>';
         toSelect.innerHTML = '<option value="">— выберите точку —</option>';
 
@@ -147,18 +276,52 @@
         });
     }
 
+    function renderFavoritesList() {
+        if (!isUserAuthenticated) return;
+        const container = document.getElementById('favoritesList');
+        if (!container) return;
+
+        const favorites = allPois.filter(p => userFavorites.has(p.id));
+        container.innerHTML = '';
+
+        if (!favorites.length) {
+            container.innerHTML = '<p class="text-gray-500">Добавьте точки в избранное через карточки на карте.</p>';
+            return;
+        }
+
+        favorites.forEach(poi => {
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-3 py-2';
+            item.innerHTML = `
+                <div>
+                    <p class="text-sm font-semibold text-gray-800">${poi.title}</p>
+                    <p class="text-xs text-gray-500">${poi.type}</p>
+                </div>
+                <button onclick="focusOnPoi(${poi.id})" class="text-blue-600 hover:text-blue-800 text-sm font-semibold">На карте</button>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    function focusOnPoi(poiId) {
+        const poi = allPois.find(p => p.id === poiId);
+        if (!poi) return;
+        map.setCenter([poi.lat, poi.lng], 18, { duration: 300 });
+        showToast('Перемещаемся к выбранной точке');
+    }
+
     function buildRoute() {
         const fromId = parseInt(document.getElementById('routeFrom').value);
         const toId = parseInt(document.getElementById('routeTo').value);
 
         if (!fromId || !toId || fromId === toId) {
-            alert('Выберите разные точки отправления и назначения.');
+            showToast('Выберите разные точки отправления и назначения.', 'warning');
             return;
         }
 
         const fromPoi = allPois.find(p => p.id === fromId);
         const toPoi = allPois.find(p => p.id === toId);
-        if (!fromPoi || !toPoi) return alert('Точка не найдена.');
+        if (!fromPoi || !toPoi) return showToast('Точка не найдена.', 'error');
 
         if (routeOnMap) map.geoObjects.remove(routeOnMap);
 
@@ -167,84 +330,104 @@
                 routeOnMap = route;
                 map.geoObjects.add(route);
                 map.setBounds(route.getBounds(), { duration: 300 });
+                showToast('Маршрут построен');
             })
-            .catch(err => alert('Не удалось построить маршрут: ' + err.message));
+            .catch(err => showToast('Не удалось построить маршрут: ' + err.message, 'error'));
     }
 
     function toggleEditMode() {
         editMode = !editMode;
+        pendingCoords = null;
+        hidePoiPanel();
+
         const btn = document.getElementById('toggleEditMode');
-        btn.textContent = editMode
-            ? '✅ Выйти из режима редактирования'
-            : '✏️ Режим редактирования';
+        btn.textContent = editMode ? '✅ Режим включен' : '✏️ Режим';
+        btn.classList.toggle('bg-emerald-600', editMode);
+        btn.classList.toggle('bg-gray-200', !editMode);
 
         if (editMode) {
             map.events.add('click', onMapClick);
+            showToast('Кликните по карте, чтобы добавить точку');
         } else {
             map.events.remove('click', onMapClick);
         }
     }
 
     function onMapClick(e) {
-        const coords = e.get('coords');
-        const balloonContent = `
-            <div class="p-3 w-64">
-                <h3 class="font-bold text-gray-800 mb-2">Новая точка</h3>
-                <input id="poiTitle" placeholder="Название" class="w-full px-2 py-1 mb-2 border rounded text-sm" required>
-                <input id="poiType" placeholder="Тип (столовая, вход и т.д.)" class="w-full px-2 py-1 mb-2 border rounded text-sm" required>
-                <textarea id="poiInfo" placeholder="Доп. информация" class="w-full px-2 py-1 mb-3 border rounded text-sm" rows="2"></textarea>
-                <button id="submitPoi" class="w-full bg-green-600 text-white py-1 rounded text-sm hover:bg-green-700">Создать</button>
-            </div>
-        `;
-        const balloon = new ymaps.Balloon(map, { autoPan: true });
-        balloon.open(coords, balloonContent);
+        if (!editMode) return;
+        pendingCoords = e.get('coords');
+        const coordsText = `${pendingCoords[0].toFixed(6)}, ${pendingCoords[1].toFixed(6)}`;
+        document.getElementById('newPoiCoords').textContent = coordsText;
+        document.getElementById('newPoiPanel').classList.remove('hidden');
+        map.panTo(pendingCoords, { duration: 200 });
+    }
 
-        document.getElementById('submitPoi').addEventListener('click', () => {
-            const title = document.getElementById('poiTitle').value.trim();
-            const type = document.getElementById('poiType').value.trim();
-            const info = document.getElementById('poiInfo').value.trim();
+    function hidePoiPanel() {
+        const panel = document.getElementById('newPoiPanel');
+        if (panel) panel.classList.add('hidden');
+    }
 
-            if (!title || !type) return alert('Заполните название и тип.');
+    function clearPoiForm() {
+        document.getElementById('poiTitle').value = '';
+        document.getElementById('poiType').value = '';
+        document.getElementById('poiInfo').value = '';
+    }
 
-            fetch("{% url 'create_poi' %}", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": csrfToken,
-                },
-                body: JSON.stringify({ title, type, info, lat: coords[0], lng: coords[1] })
-            })
-            .then(res => res.json())
-            .then(data => {
-                balloon.close();
-                if (data.success) {
-                    const newPoi = {
-                        id: data.id,
-                        title,
-                        type,
-                        info,
-                        lat: coords[0],
-                        lng: coords[1]
-                    };
-                    allPois.push(newPoi);
-                    updateMapWithPlacemarks();
-                    populateDropdowns();
-                    alert("Точка успешно добавлена!");
-                } else {
-                    alert("Ошибка при сохранении.");
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert("Не удалось добавить точку.");
-                balloon.close();
-            });
+    function submitPoiForm() {
+        if (!pendingCoords) {
+            showToast('Сначала кликните по карте, чтобы выбрать точку.', 'warning');
+            return;
+        }
+
+        const title = document.getElementById('poiTitle').value.trim();
+        const type = document.getElementById('poiType').value.trim();
+        const info = document.getElementById('poiInfo').value.trim();
+
+        if (!title || !type) {
+            showToast('Заполните название и тип объекта.', 'warning');
+            return;
+        }
+
+        fetch("{% url 'create_poi' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify({ title, type, info, lat: pendingCoords[0], lng: pendingCoords[1] })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const newPoi = {
+                    id: data.id,
+                    title,
+                    type,
+                    info,
+                    lat: pendingCoords[0],
+                    lng: pendingCoords[1]
+                };
+                allPois.push(newPoi);
+                updateMapWithPlacemarks();
+                populateDropdowns();
+                renderFavoritesList();
+                showToast('Точка успешно добавлена');
+                clearPoiForm();
+                hidePoiPanel();
+                pendingCoords = null;
+            } else {
+                showToast('Ошибка при сохранении.', 'error');
+            }
+        })
+        .catch(() => {
+            showToast('Не удалось добавить точку.', 'error');
+            hidePoiPanel();
         });
     }
 
     function toggleFavorite(poiId) {
         if (!isUserAuthenticated) {
-            alert("Войдите в аккаунт, чтобы использовать избранное.");
+            showToast('Войдите в аккаунт, чтобы использовать избранное.', 'warning');
             return;
         }
 
@@ -261,13 +444,16 @@
             if (data.favorited !== undefined) {
                 if (data.favorited) {
                     userFavorites.add(poiId);
+                    showToast('Добавлено в избранное');
                 } else {
                     userFavorites.delete(poiId);
+                    showToast('Удалено из избранного', 'warning');
                 }
                 updateMapWithPlacemarks();
+                renderFavoritesList();
             }
         })
-        .catch(err => alert("Ошибка при обновлении избранного."));
+        .catch(() => showToast('Ошибка при обновлении избранного.', 'error'));
     }
 </script>
 {% endblock %}
