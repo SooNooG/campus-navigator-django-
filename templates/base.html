@@ -47,7 +47,7 @@
                 <div class="text-sm flex items-center gap-4">
                     Привет, {{ user.username }}!
                     <a href="{% url 'profile' %}" class="text-white hover:underline">Профиль</a>
-                    <a href="{% url 'logout' %}" class="text-white hover:underline">Выйти</a>
+                    <a href="{% url 'user_logout' %}" class="text-white hover:underline">Выйти</a>
                 </div>
             {% else %}
                 <div class="flex gap-2">

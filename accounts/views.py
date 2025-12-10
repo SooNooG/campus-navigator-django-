@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods
 from .forms import UserRegisterForm
 
 
@@ -20,4 +22,13 @@ def register(request):
 @login_required
 def profile(request):
     return render(request, "accounts/profile.html")
+
+
+@require_http_methods(["GET", "POST"])
+def logout_view(request):
+    """Log out the current user and redirect to the map."""
+
+    logout(request)
+    messages.info(request, "Вы вышли из аккаунта.")
+    return redirect("map")
 
