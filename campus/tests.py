@@ -1,8 +1,10 @@
+import json
+
+from django.contrib.auth.models import User
 from django.test import TestCase
-from campus.models import Building, Room, Poi
-from django.db.models import Q
-from campus.views import search_view
 from django.urls import reverse
+
+from campus.models import Building, FavoritePoi, Poi, Room
 
 
 class ModelsTestCase(TestCase):
@@ -142,3 +144,133 @@ class SearchViewTestCase(TestCase):
         url = reverse("search")
         response = self.client.get(url, {"q": "вход"})
         self.assertContains(response, "Главный вход")
+
+
+class PoiManagementTestCase(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="pass1234"
+        )
+        self.user = User.objects.create_user(
+            username="user", email="user@example.com", password="pass1234"
+        )
+        self.building = Building.objects.create(name="A", code="A", lat=1, lng=2)
+        self.poi = Poi.objects.create(
+            building=self.building,
+            title="Столовая",
+            type="canteen",
+            lat=1.1,
+            lng=2.2,
+        )
+
+    def test_create_poi_as_superuser(self):
+        self.client.force_login(self.superuser)
+        payload = {
+            "building_id": self.building.id,
+            "title": "Лифт",
+            "type": "elevator",
+            "lat": 1.2,
+            "lng": 2.3,
+            "info": "У центрального входа",
+        }
+        response = self.client.post(
+            reverse("create_poi"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data.get("success"))
+        self.assertTrue(Poi.objects.filter(id=data.get("id"), title="Лифт").exists())
+
+    def test_create_poi_with_invalid_payload_returns_400(self):
+        self.client.force_login(self.superuser)
+        response = self.client.post(
+            reverse("create_poi"),
+            data="{}",
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Poi.objects.count(), 1)
+
+    def test_toggle_favorite_flow(self):
+        self.client.force_login(self.user)
+        toggle_url = reverse("toggle_favorite")
+
+        response = self.client.post(
+            toggle_url,
+            data=json.dumps({"poi_id": self.poi.id}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(FavoritePoi.objects.filter(user=self.user, poi=self.poi).count(), 1)
+        self.assertTrue(response.json()["favorited"])
+
+        response = self.client.post(
+            toggle_url,
+            data=json.dumps({"poi_id": self.poi.id}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["favorited"])
+        self.assertEqual(FavoritePoi.objects.filter(user=self.user, poi=self.poi).count(), 0)
+
+    def test_toggle_favorite_non_post_not_allowed(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("toggle_favorite"))
+        self.assertEqual(response.status_code, 405)
+
+    def test_favorites_json_returns_only_user_entries(self):
+        other_user = User.objects.create_user(
+            username="other", email="other@example.com", password="pass1234"
+        )
+        FavoritePoi.objects.create(user=self.user, poi=self.poi)
+        FavoritePoi.objects.create(
+            user=other_user,
+            poi=Poi.objects.create(
+                building=self.building,
+                title="Лаборатория",
+                type="lab",
+                lat=1.3,
+                lng=2.4,
+            ),
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("favorites_json"))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["poi__title"], "Столовая")
+
+
+class SearchTemplateTestCase(TestCase):
+    def setUp(self):
+        self.building = Building.objects.create(
+            name="Учебный корпус",
+            code="УК",
+            lat=55.2,
+            lng=37.2,
+        )
+        self.room = Room.objects.create(
+            building=self.building,
+            number="202",
+            floor=2
+        )
+        self.poi = Poi.objects.create(
+            building=self.building,
+            title="Буфет",
+            type="canteen",
+            lat=55.2005,
+            lng=37.2005
+        )
+
+    def test_search_results_context(self):
+        response = self.client.get(reverse("search"), {"q": "202"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("rooms", response.context)
+        self.assertGreater(len(response.context["rooms"]), 0)
+
+    def test_search_template_renders_objects(self):
+        response = self.client.get(reverse("search"), {"q": "Буфет"})
+        self.assertContains(response, "Буфет")
