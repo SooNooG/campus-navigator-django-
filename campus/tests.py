@@ -242,3 +242,35 @@ class PoiManagementTestCase(TestCase):
         data = response.json()
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["poi__title"], "Столовая")
+
+
+class SearchTemplateTestCase(TestCase):
+    def setUp(self):
+        self.building = Building.objects.create(
+            name="Учебный корпус",
+            code="УК",
+            lat=55.2,
+            lng=37.2,
+        )
+        self.room = Room.objects.create(
+            building=self.building,
+            number="202",
+            floor=2
+        )
+        self.poi = Poi.objects.create(
+            building=self.building,
+            title="Буфет",
+            type="canteen",
+            lat=55.2005,
+            lng=37.2005
+        )
+
+    def test_search_results_context(self):
+        response = self.client.get(reverse("search"), {"q": "202"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("rooms", response.context)
+        self.assertGreater(len(response.context["rooms"]), 0)
+
+    def test_search_template_renders_objects(self):
+        response = self.client.get(reverse("search"), {"q": "Буфет"})
+        self.assertContains(response, "Буфет")
