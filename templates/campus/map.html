@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+    #map {
+        height: 75vh;
+        width: 100%;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .edit-mode-indicator {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        z-index: 1000;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+    <div class="flex flex-col md:flex-row gap-4 items-center">
+        <div class="w-full md:w-auto">
+            <label class="block text-sm font-medium text-gray-700 mb-1">От:</label>
+            <select id="routeFrom" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">— выберите точку —</option>
+            </select>
+        </div>
+        <div class="w-full md:w-auto">
+            <label class="block text-sm font-medium text-gray-700 mb-1">До:</label>
+            <select id="routeTo" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">— выберите точку —</option>
+            </select>
+        </div>
+        <button id="buildRouteBtn" class="mt-4 md:mt-0 self-start px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+            Построить маршрут
+        </button>
+    </div>
+</div>
+
+{% if user.is_superuser %}
+<div class="edit-mode-indicator">
+    <button id="toggleEditMode" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 shadow">
+        ✏️ Режим редактирования
+    </button>
+</div>
+{% endif %}
+
+<div id="map"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const centerLat = {{ center_lat|default:55.75 }};
+    const centerLng = {{ center_lng|default:37.61 }};
+    const csrfToken = "{{ csrf_token }}";
+    const isUserAuthenticated = {{ user.is_authenticated|lower }};
+    const isSuperuser = {{ user.is_superuser|lower }};
+
+    let allPois = [];
+    let userFavorites = new Set();
+    let map = null;
+    let routeOnMap = null;
+    let editMode = false;
+
+    ymaps.ready(init);
+
+    function init() {
+        map = new ymaps.Map("map", {
+            center: [centerLat, centerLng],
+            zoom: 16,
+            controls: ['zoomControl', 'typeSelector', 'fullscreenControl']
+        });
+
+        fetch("{% url 'pois_json' %}")
+            .then(res => res.json())
+            .then(pois => {
+                allPois = pois;
+                if (isUserAuthenticated) {
+                    return fetch("{% url 'favorites_json' %}")
+                        .then(res => res.json())
+                        .then(favs => {
+                            favs.forEach(f => userFavorites.add(f.poi__id));
+                        })
+                        .catch(err => console.warn('Не удалось загрузить избранное'));
+                }
+            })
+            .then(() => {
+                updateMapWithPlacemarks();
+                populateDropdowns();
+            });
+
+        document.getElementById('buildRouteBtn').addEventListener('click', buildRoute);
+
+        if (isSuperuser) {
+            document.getElementById('toggleEditMode').addEventListener('click', toggleEditMode);
+        }
+    }
+
+    function updateMapWithPlacemarks() {
+        map.geoObjects.removeAll();
+        const geoObjects = new ymaps.GeoObjectCollection();
+
+        allPois.forEach(poi => {
+            const isFav = userFavorites.has(poi.id);
+            const iconPreset = isFav ? 'islands#redDotIcon' : 'islands#blueDotIcon';
+            const favButton = isUserAuthenticated ? `
+                <button onclick="toggleFavorite(${poi.id})"
+                        class="mt-2 px-2 py-1 text-xs rounded ${isFav ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">
+                    ${isFav ? 'Убрать из избранного' : 'Добавить в избранное'}
+                </button>` : '';
+
+            const placemark = new ymaps.Placemark(
+                [poi.lat, poi.lng],
+                {
+                    balloonContentHeader: `<strong>${poi.title}</strong>`,
+                    balloonContentBody: (poi.info ? poi.info + '<br>' : '') +
+                                        `<em>${poi.type}</em>` + favButton,
+                    hintContent: poi.title
+                },
+                { preset: iconPreset }
+            );
+            geoObjects.add(placemark);
+        });
+
+        map.geoObjects.add(geoObjects);
+    }
+
+    function populateDropdowns() {
+        const fromSelect = document.getElementById('routeFrom');
+        const toSelect = document.getElementById('routeTo');
+
+        // Clear options except placeholder
+        fromSelect.innerHTML = '<option value="">— выберите точку —</option>';
+        toSelect.innerHTML = '<option value="">— выберите точку —</option>';
+
+        allPois.forEach(poi => {
+            const optFrom = document.createElement('option');
+            optFrom.value = poi.id;
+            optFrom.textContent = poi.title;
+            fromSelect.appendChild(optFrom);
+
+            const optTo = document.createElement('option');
+            optTo.value = poi.id;
+            optTo.textContent = poi.title;
+            toSelect.appendChild(optTo);
+        });
+    }
+
+    function buildRoute() {
+        const fromId = parseInt(document.getElementById('routeFrom').value);
+        const toId = parseInt(document.getElementById('routeTo').value);
+
+        if (!fromId || !toId || fromId === toId) {
+            alert('Выберите разные точки отправления и назначения.');
+            return;
+        }
+
+        const fromPoi = allPois.find(p => p.id === fromId);
+        const toPoi = allPois.find(p => p.id === toId);
+        if (!fromPoi || !toPoi) return alert('Точка не найдена.');
+
+        if (routeOnMap) map.geoObjects.remove(routeOnMap);
+
+        ymaps.route([[fromPoi.lat, fromPoi.lng], [toPoi.lat, toPoi.lng]])
+            .then(route => {
+                routeOnMap = route;
+                map.geoObjects.add(route);
+                map.setBounds(route.getBounds(), { duration: 300 });
+            })
+            .catch(err => alert('Не удалось построить маршрут: ' + err.message));
+    }
+
+    function toggleEditMode() {
+        editMode = !editMode;
+        const btn = document.getElementById('toggleEditMode');
+        btn.textContent = editMode
+            ? '✅ Выйти из режима редактирования'
+            : '✏️ Режим редактирования';
+
+        if (editMode) {
+            map.events.add('click', onMapClick);
+        } else {
+            map.events.remove('click', onMapClick);
+        }
+    }
+
+    function onMapClick(e) {
+        const coords = e.get('coords');
+        const balloonContent = `
+            <div class="p-3 w-64">
+                <h3 class="font-bold text-gray-800 mb-2">Новая точка</h3>
+                <input id="poiTitle" placeholder="Название" class="w-full px-2 py-1 mb-2 border rounded text-sm" required>
+                <input id="poiType" placeholder="Тип (столовая, вход и т.д.)" class="w-full px-2 py-1 mb-2 border rounded text-sm" required>
+                <textarea id="poiInfo" placeholder="Доп. информация" class="w-full px-2 py-1 mb-3 border rounded text-sm" rows="2"></textarea>
+                <button id="submitPoi" class="w-full bg-green-600 text-white py-1 rounded text-sm hover:bg-green-700">Создать</button>
+            </div>
+        `;
+        const balloon = new ymaps.Balloon(map, { autoPan: true });
+        balloon.open(coords, balloonContent);
+
+        document.getElementById('submitPoi').addEventListener('click', () => {
+            const title = document.getElementById('poiTitle').value.trim();
+            const type = document.getElementById('poiType').value.trim();
+            const info = document.getElementById('poiInfo').value.trim();
+
+            if (!title || !type) return alert('Заполните название и тип.');
+
+            fetch("{% url 'create_poi' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken,
+                },
+                body: JSON.stringify({ title, type, info, lat: coords[0], lng: coords[1] })
+            })
+            .then(res => res.json())
+            .then(data => {
+                balloon.close();
+                if (data.success) {
+                    const newPoi = {
+                        id: data.id,
+                        title,
+                        type,
+                        info,
+                        lat: coords[0],
+                        lng: coords[1]
+                    };
+                    allPois.push(newPoi);
+                    updateMapWithPlacemarks();
+                    populateDropdowns();
+                    alert("Точка успешно добавлена!");
+                } else {
+                    alert("Ошибка при сохранении.");
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Не удалось добавить точку.");
+                balloon.close();
+            });
+        });
+    }
+
+    function toggleFavorite(poiId) {
+        if (!isUserAuthenticated) {
+            alert("Войдите в аккаунт, чтобы использовать избранное.");
+            return;
+        }
+
+        fetch("{% url 'toggle_favorite' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify({ poi_id: poiId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.favorited !== undefined) {
+                if (data.favorited) {
+                    userFavorites.add(poiId);
+                } else {
+                    userFavorites.delete(poiId);
+                }
+                updateMapWithPlacemarks();
+            }
+        })
+        .catch(err => alert("Ошибка при обновлении избранного."));
+    }
+</script>
+{% endblock %}

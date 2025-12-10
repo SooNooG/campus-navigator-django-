@@ -1,0 +1,61 @@
+<!-- templates/campus/search_results.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">
+        {% if query %}
+            Результаты поиска: "{{ query }}"
+        {% else %}
+            Поиск по кампусу
+        {% endif %}
+    </h2>
+
+    {% if not query %}
+        <p class="text-gray-600">Введите запрос в поле поиска в шапке.</p>
+    {% else %}
+        {% if not buildings and not rooms and not pois %}
+            <p class="text-gray-600">Ничего не найдено.</p>
+        {% endif %}
+
+        {% if buildings %}
+            <h3 class="text-xl font-semibold mt-6 mb-3 text-gray-700">Корпуса</h3>
+            <ul class="space-y-2">
+                {% for b in buildings %}
+                    <li class="p-3 bg-gray-50 rounded-md">
+                        <strong>{{ b.name }}</strong>
+                        {% if b.address %} — {{ b.address }}{% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% if rooms %}
+            <h3 class="text-xl font-semibold mt-6 mb-3 text-gray-700">Аудитории</h3>
+            <ul class="space-y-2">
+                {% for r in rooms %}
+                    <li class="p-3 bg-gray-50 rounded-md">
+                        {{ r.building.name }} — аудитория <strong>{{ r.number }}</strong> (этаж {{ r.floor }})
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% if pois %}
+            <h3 class="text-xl font-semibold mt-6 mb-3 text-gray-700">Объекты инфраструктуры</h3>
+            <ul class="space-y-2">
+                {% for p in pois %}
+                    <li class="p-3 bg-gray-50 rounded-md flex justify-between items-start">
+                        <div>
+                            <strong>{{ p.title }}</strong>
+                            {% if p.building %} ({{ p.building.name }}){% endif %}
+                            {% if p.type %} — <em class="text-gray-600">{{ p.type }}</em>{% endif %}
+                        </div>
+                        <a href="{% url 'map' %}?poi_id={{ p.id }}" class="text-secondary hover:underline text-sm">Показать на карте</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

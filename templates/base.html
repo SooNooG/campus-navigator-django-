@@ -1,0 +1,69 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Навигатор по кампусу</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1d4ed8',
+                        secondary: '#3b82f6',
+                    }
+                }
+            }
+        }
+    </script>
+    {% load static %}
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; }
+        #map { height: 75vh; width: 100%; border-radius: 0.5rem; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <header class="bg-primary text-white shadow-md">
+        <div class="container mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center">
+            <h1 class="text-xl font-bold">🗺️ Навигатор по кампусу</h1>
+            <form method="get" action="{% url 'search' %}" class="w-full md:w-auto mt-2 md:mt-0">
+                <div class="flex">
+                    <input
+                        type="text"
+                        name="q"
+                        placeholder="Поиск корпуса / аудитории / объекта"
+                        class="px-3 py-2 rounded-l-lg text-gray-800 w-full md:w-64"
+                        value="{{ query|default:'' }}"
+                    >
+                    <button type="submit" class="bg-white text-primary px-4 py-2 rounded-r-lg font-medium hover:bg-gray-100">
+                        Найти
+                    </button>
+                </div>
+            </form>
+            {% if user.is_authenticated %}
+                <div class="text-sm flex items-center gap-4">
+                    Привет, {{ user.username }}!
+                    <a href="{% url 'profile' %}" class="text-white hover:underline">Профиль</a>
+                    <a href="{% url 'logout' %}" class="text-white hover:underline">Выйти</a>
+                </div>
+            {% else %}
+                <div class="flex gap-2">
+                    <a href="{% url 'login' %}" class="text-white hover:underline">Войти</a>
+                    <a href="{% url 'register' %}" class="text-white hover:underline">Регистрация</a>
+                </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Yandex Maps -->
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=8b90d90b-dccc-4980-8220-7e29fa1121ce&lang=ru_RU" type="text/javascript"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+

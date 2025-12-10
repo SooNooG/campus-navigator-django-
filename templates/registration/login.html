@@ -1,0 +1,51 @@
+<!-- templates/registration/login.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow mt-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">Вход в систему</h2>
+
+    {% if form.errors %}
+        <div class="mb-4 text-red-600">
+            {% if form.non_field_errors %}
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            {% else %}
+                <p>Неверное имя пользователя или пароль.</p>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-4">
+            <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Имя пользователя
+            </label>
+            {{ form.username }}
+        </div>
+
+        <div class="mb-6">
+            <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Пароль
+            </label>
+            {{ form.password }}
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+            Войти
+        </button>
+
+        <input type="hidden" name="next" value="{{ next }}" />
+    </form>
+
+    <div class="mt-4 text-center text-sm text-gray-600">
+        <p>Нет аккаунта? <a href="{% url 'register' %}" class="text-blue-600 hover:underline">Зарегистрироваться</a></p>
+        <p class="mt-1">
+            <a href="{% url 'password_reset' %}" class="text-blue-600 hover:underline">Забыли пароль?</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
