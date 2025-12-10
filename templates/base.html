@@ -43,9 +43,15 @@
                 </div>
             </form>
             {% if user.is_authenticated %}
-                <div class="mt-2 md:mt-0 text-sm">
-                    Привет, {{ user.username }}! 
-                    <a href="{% url 'admin:logout' %}" class="ml-2 underline hover:text-gray-200">Выйти</a>
+                <div class="text-sm flex items-center gap-4">
+                    Привет, {{ user.username }}!
+                    <a href="{% url 'profile' %}" class="text-white hover:underline">Профиль</a>
+                    <a href="{% url 'logout' %}" class="text-white hover:underline">Выйти</a>
+                </div>
+            {% else %}
+                <div class="flex gap-2">
+                    <a href="{% url 'login' %}" class="text-white hover:underline">Войти</a>
+                    <a href="{% url 'register' %}" class="text-white hover:underline">Регистрация</a>
                 </div>
             {% endif %}
         </div>

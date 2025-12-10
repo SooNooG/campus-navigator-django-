@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'campus',
+    'accounts',
 ]
 
 
@@ -124,3 +125,5 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
+LOGIN_REDIRECT_URL = "/"         # после входа — на карту
+LOGOUT_REDIRECT_URL = "/"        # после выхода — на карту
